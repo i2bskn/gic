@@ -42,16 +42,20 @@ var commandUpload = cli.Command{
 }
 
 func doInit(c *cli.Context) {
-	template_path := getTemplatePath()
-	_, err := os.Stat(template_path)
-	if os.IsNotExist(err) {
+	if requireInitialize() {
+		template_path := getTemplatePath()
 		os.MkdirAll(template_path, 0777)
-		fmt.Printf("Created %s", template_path)
+		fmt.Printf("Created %s\n", template_path)
 	}
 }
 
 func doList(c *cli.Context) {
-	fmt.Println("hoge")
+	exitIfNotInitialized()
+	templates := getTemplates()
+
+	for _, template := range templates {
+		fmt.Println(templateName(template))
+	}
 }
 
 func doEdit(c *cli.Context) {
