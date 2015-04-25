@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ const (
 	MetaDir = ".gic"
 	TemplateDir = "templates"
 	DefaultEditor = "vi"
+	Permission = 0777
 )
 
 var Commands = []cli.Command{
@@ -64,16 +66,15 @@ var commandApply = cli.Command{
 func doInit(c *cli.Context) {
 	if requireInitialize() {
 		template_dir := getTemplateDir()
-		os.MkdirAll(template_dir, 0777)
+		os.MkdirAll(template_dir, Permission)
 		fmt.Printf("Created %s\n", template_dir)
 	}
 }
 
 func doList(c *cli.Context) {
 	exitIfNotInitialized()
-	templates := getTemplates()
 
-	for _, template := range templates {
+	for _, template := range getTemplates() {
 		fmt.Println(getTemplateName(template))
 	}
 }
@@ -81,94 +82,9 @@ func doList(c *cli.Context) {
 func doEdit(c *cli.Context) {
 	exitIfNotInitialized()
 	exitIfNotSpecifiedTemplate(len(c.Args()))
-	editTemplateWithEditor(c.Args().First())
-}
 
-func doPreview(c *cli.Context) {
-	exitIfNotInitialized()
-	exitIfNotSpecifiedTemplate(len(c.Args()))
-	template_path := getTemplatePath(c.Args().First())
-	tmpl := template.Must(template.ParseFiles(template_path))
-	helper := newHelper()
-	err := tmpl.Execute(os.Stdout, *helper)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func doApply(c *cli.Context) {
-	exitIfNotInitialized()
-	exitIfNotSpecifiedTemplate(len(c.Args()))
-}
-
-func getTemplateName(template_path string) string {
-	return path.Base(template_path)
-}
-
-func getTemplatePath(template_name string) string {
-	return path.Join(getTemplateDir(), template_name)
-}
-
-func exitIfNotInitialized() {
-	if requireInitialize() {
-		fmt.Println("Require initialize. Please execute `gic init`.")
-		os.Exit(1)
-	}
-}
-
-func exitIfNotSpecifiedTemplate(i int) {
-	if i == 0 {
-		fmt.Println("Require template name.")
-		os.Exit(1)
-	}
-}
-
-func getTemplates() (templates []string) {
-	pattern := path.Join(getTemplateDir(), "*")
-	templates, err := filepath.Glob(pattern)
-
-	if err != nil {
-		fmt.Println("Get template list fails.")
-		os.Exit(1)
-	}
-	return
-}
-
-func requireInitialize() bool {
-	template_path := getTemplateDir()
-	_, err := os.Stat(template_path)
-
-	if os.IsNotExist(err) {
-		return true
-	} else {
-		return false
-	}
-}
-
-func getTemplateDir() string {
-	return path.Join(getMetaPath(), TemplateDir)
-}
-
-func getMetaPath() string {
-	out, err := getProjectRoot()
-
-	if err != nil {
-		fmt.Println(out)
-		os.Exit(1)
-	}
-
-	return path.Join(out, MetaDir)
-}
-
-func getProjectRoot() (out string, err error) {
-	result, err := exec.Command("git", "rev-parse", "--show-toplevel").CombinedOutput()
-	out = strings.TrimSpace(string(result))
-	return
-}
-
-func editTemplateWithEditor(template string) {
 	editor := getEditor()
-	template_path := getTemplatePath(template)
+	template_path := getTemplatePath(c.Args().First())
 	cmd := exec.Command(editor, template_path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -179,12 +95,119 @@ func editTemplateWithEditor(template string) {
 	}
 }
 
+func doPreview(c *cli.Context) {
+	exitIfNotInitialized()
+	exitIfNotSpecifiedTemplate(len(c.Args()))
+
+	tmpl := template.Must(template.ParseFiles(getTemplatePath(c.Args().First())))
+	helper := newHelper()
+	err := tmpl.Execute(os.Stdout, *helper)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func doApply(c *cli.Context) {
+	exitIfNotInitialized()
+	exitIfNotSpecifiedTemplate(len(c.Args()))
+}
+
+func exitIfNotInitialized() {
+	if requireInitialize() {
+		fail("Require initialize. Please execute `gic init`.")
+	}
+}
+
+func exitIfNotSpecifiedTemplate(arg_size int) {
+	if arg_size < 1 {
+		fail("Require template name.")
+	}
+}
+
+func requireInitialize() bool {
+	_, err := os.Stat(getTemplateDir())
+
+	if os.IsNotExist(err) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func getTemplates() (templates []string) {
+	templates, err := filepath.Glob(path.Join(getTemplateDir(), "*"))
+
+	if err != nil {
+		fail("Get template list fails.")
+	}
+	return
+}
+
+func getTemplateName(template_path string) string {
+	return path.Base(template_path)
+}
+
+func getTemplatePath(template_name string) string {
+	return path.Join(getTemplateDir(), template_name)
+}
+
+func getTemplateDir() string {
+	return path.Join(getMetaPath(), TemplateDir)
+}
+
+func getMetaPath() string {
+	out, err := getProjectRoot()
+
+	if err != nil {
+		fail(out)
+	}
+	return path.Join(out, MetaDir)
+}
+
+func getProjectRoot() (out string, err error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	out = strings.TrimSpace(out.String())
+	return
+}
+
 func getEditor() (editor string) {
 	envs := getEnvMap()
 	editor = envs["EDITOR"]
+
 	if len(editor) == 0 {
 		editor = DefaultEditor
 	}
 	return
+}
+
+func getGitConfig(key string) string {
+	cmd := exec.Command("git", "config", key)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	out = strings.TrimSpace(out.String())
+	return
+}
+
+func getEnvMap() (envs map[string]string) {
+	envs = make(map[string]string)
+
+	for _, env := range os.Environ() {
+		key_and_value := strings.SplitN(env, "=", 2)
+		envs[key_and_value[0]] = key_and_value[1]
+	}
+	return
+}
+
+func fail(message string) {
+	fmt.Println(message)
+	os.Exit(1)
 }
 

@@ -40,12 +40,3 @@ func parseCommand(command string) (prog string, args []string) {
 	return
 }
 
-func getEnvMap() (envs map[string]string) {
-	envs = make(map[string]string)
-	for _, env := range os.Environ() {
-		key_and_value := strings.SplitN(env, "=", 2)
-		envs[key_and_value[0]] = key_and_value[1]
-	}
-	return
-}
-
