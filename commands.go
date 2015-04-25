@@ -7,8 +7,10 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/codegangsta/cli"
 )
@@ -18,6 +20,7 @@ const (
 	TemplateDir = "templates"
 	DefaultEditor = "vi"
 	Permission = 0777
+	PersonalAccessTokenKey = "github.token"
 )
 
 var Commands = []cli.Command{
@@ -104,14 +107,32 @@ func doPreview(c *cli.Context) {
 	err := tmpl.Execute(os.Stdout, *helper)
 
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fail("Render template fails.")
 	}
 }
 
 func doApply(c *cli.Context) {
 	exitIfNotInitialized()
 	exitIfNotSpecifiedTemplate(len(c.Args()))
+
+	title := createTitle()
+
+	tmpl := template.Must(template.ParseFiles(getTemplatePath(c.Args().First())))
+	var body bytes.Buffer
+	helper := newHelper()
+	err := tmpl.Execute(&body, *helper)
+	if err != nil {
+		fail("Render template fails")
+	}
+
+	owner, repo := parseOriginUrl()
+
+	token, err := getGitConfig(PersonalAccessTokenKey)
+	if err != nil {
+		fail("Must be token settings to .gitconfig")
+	}
+
+	createIssue(title, body.String(), owner, repo, token)
 }
 
 func exitIfNotInitialized() {
@@ -124,6 +145,11 @@ func exitIfNotSpecifiedTemplate(arg_size int) {
 	if arg_size < 1 {
 		fail("Require template name.")
 	}
+}
+
+func createTitle() string {
+	now := time.Now().Format("20060102150405")
+	return "Post from gic " + now
 }
 
 func requireInitialize() bool {
@@ -168,11 +194,11 @@ func getMetaPath() string {
 
 func getProjectRoot() (out string, err error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	var result bytes.Buffer
+	cmd.Stdout = &result
 
-	err := cmd.Run()
-	out = strings.TrimSpace(out.String())
+	err = cmd.Run()
+	out = strings.TrimSpace(result.String())
 	return
 }
 
@@ -186,13 +212,28 @@ func getEditor() (editor string) {
 	return
 }
 
-func getGitConfig(key string) string {
-	cmd := exec.Command("git", "config", key)
-	var out bytes.Buffer
-	cmd.Stdout = &out
+func parseOriginUrl() (owner, repo string) {
+	origin_url, err := getGitConfig("remote.origin.url")
+	if err != nil {
+		fail("Origin URI not found.")
+	}
 
-	err := cmd.Run()
-	out = strings.TrimSpace(out.String())
+	re := regexp.MustCompile(`^(?:git@github\.com:|https://github\.com/)([^/]+)/([^/]+?)(?:\.git)$`)
+	submatch := re.FindSubmatch([]byte(origin_url))
+	if len(submatch) != 3 {
+		fail("Origin URL parse error.")
+	}
+
+	return string(submatch[1]), string(submatch[2])
+}
+
+func getGitConfig(key string) (out string, err error) {
+	cmd := exec.Command("git", "config", key)
+	var result bytes.Buffer
+	cmd.Stdout = &result
+
+	err = cmd.Run()
+	out = strings.TrimSpace(result.String())
 	return
 }
 
