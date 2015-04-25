@@ -7,6 +7,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"text/template"
+
 	"github.com/codegangsta/cli"
 )
 
@@ -20,7 +22,8 @@ var Commands = []cli.Command{
 	commandInit,
 	commandList,
 	commandEdit,
-	commandUpload,
+	commandPreview,
+	commandApply,
 }
 
 var commandInit = cli.Command{
@@ -44,11 +47,18 @@ var commandEdit = cli.Command{
 	Action: doEdit,
 }
 
-var commandUpload = cli.Command{
-	Name:  "upload",
+var commandPreview = cli.Command{
+	Name:  "preview",
 	Usage: "",
 	Description: ``,
-	Action: doUpload,
+	Action: doPreview,
+}
+
+var commandApply = cli.Command{
+	Name:  "apply",
+	Usage: "",
+	Description: ``,
+	Action: doApply,
 }
 
 func doInit(c *cli.Context) {
@@ -69,14 +79,26 @@ func doList(c *cli.Context) {
 }
 
 func doEdit(c *cli.Context) {
-	if len(c.Args()) == 0 {
-		fmt.Println("Require template name.")
-		os.Exit(1)
-	}
+	exitIfNotInitialized()
+	exitIfNotSpecifiedTemplate(len(c.Args()))
 	editTemplateWithEditor(c.Args().First())
 }
 
-func doUpload(c *cli.Context) {
+func doPreview(c *cli.Context) {
+	exitIfNotInitialized()
+	exitIfNotSpecifiedTemplate(len(c.Args()))
+	template_path := getTemplatePath(c.Args().First())
+	tpl := template.Must(template.ParseFiles(template_path))
+	helper := Helper{}
+	err := tpl.Execute(os.Stdout, helper)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func doApply(c *cli.Context) {
+	exitIfNotInitialized()
+	exitIfNotSpecifiedTemplate(len(c.Args()))
 }
 
 func getTemplateName(template_path string) string {
@@ -90,6 +112,13 @@ func getTemplatePath(template_name string) string {
 func exitIfNotInitialized() {
 	if requireInitialize() {
 		fmt.Println("Require initialize. Please execute `gic init`.")
+		os.Exit(1)
+	}
+}
+
+func exitIfNotSpecifiedTemplate(i int) {
+	if i == 0 {
+		fmt.Println("Require template name.")
 		os.Exit(1)
 	}
 }
@@ -133,7 +162,7 @@ func getMetaPath() string {
 
 func getProjectRoot() (out string, err error) {
 	result, err := exec.Command("git", "rev-parse", "--show-toplevel").CombinedOutput()
-	out = strings.Trim(string(result), "\n")
+	out = strings.TrimSpace(string(result))
 	return
 }
 
