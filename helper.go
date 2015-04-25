@@ -1,5 +1,51 @@
 package main
 
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
+
 type Helper struct {
+	Env map[string]string
+}
+
+func (helper Helper) Execute(command string) string {
+	prog, args := parseCommand(command)
+	cmd := exec.Command(prog, args...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("Execute fails: %s\n", prog)
+		os.Exit(1)
+	}
+
+	return strings.TrimSpace(out.String())
+}
+
+func newHelper() *Helper {
+	return &Helper {
+		Env: getEnvMap(),
+	}
+}
+
+func parseCommand(command string) (prog string, args []string) {
+	elements := strings.Split(command, " ")
+	prog = elements[0]
+	args = elements[1:]
+	return
+}
+
+func getEnvMap() (envs map[string]string) {
+	envs = make(map[string]string)
+	for _, env := range os.Environ() {
+		key_and_value := strings.SplitN(env, "=", 2)
+		envs[key_and_value[0]] = key_and_value[1]
+	}
+	return
 }
 

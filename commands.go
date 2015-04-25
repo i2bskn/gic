@@ -88,9 +88,9 @@ func doPreview(c *cli.Context) {
 	exitIfNotInitialized()
 	exitIfNotSpecifiedTemplate(len(c.Args()))
 	template_path := getTemplatePath(c.Args().First())
-	tpl := template.Must(template.ParseFiles(template_path))
-	helper := Helper{}
-	err := tpl.Execute(os.Stdout, helper)
+	tmpl := template.Must(template.ParseFiles(template_path))
+	helper := newHelper()
+	err := tmpl.Execute(os.Stdout, *helper)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -180,20 +180,10 @@ func editTemplateWithEditor(template string) {
 }
 
 func getEditor() (editor string) {
-	editor = getEnviron("EDITOR")
+	envs := getEnvMap()
+	editor = envs["EDITOR"]
 	if len(editor) == 0 {
 		editor = DefaultEditor
-	}
-	return
-}
-
-func getEnviron(key string) (value string) {
-	envs := os.Environ()
-	for _, env := range envs {
-		key_and_value := strings.SplitN(env, "=", 2)
-		if key == key_and_value[0] {
-			value = key_and_value[1]
-		}
 	}
 	return
 }
