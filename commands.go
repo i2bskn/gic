@@ -33,36 +33,31 @@ var Commands = []cli.Command{
 
 var commandInit = cli.Command{
 	Name:  "init",
-	Usage: "",
-	Description: ``,
+	Usage: "Initialize gic settings of project.",
 	Action: doInit,
 }
 
 var commandList = cli.Command{
 	Name:  "list",
-	Usage: "",
-	Description: ``,
+	Usage: "Display a list of templates.",
 	Action: doList,
 }
 
 var commandEdit = cli.Command{
 	Name:  "edit",
-	Usage: "",
-	Description: ``,
+	Usage: "Edit template.",
 	Action: doEdit,
 }
 
 var commandPreview = cli.Command{
 	Name:  "preview",
-	Usage: "",
-	Description: ``,
+	Usage: "Display a preview of template.",
 	Action: doPreview,
 }
 
 var commandApply = cli.Command{
 	Name:  "apply",
-	Usage: "",
-	Description: ``,
+	Usage: "Create Issue with given template.",
 	Action: doApply,
 }
 
