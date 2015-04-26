@@ -49,9 +49,7 @@ Example:
 
 ## Files
 
-```
 {{.Execute "ls -l"}}
-```
 
 This template was written by {{.Env.EDITOR}}.
 ```
