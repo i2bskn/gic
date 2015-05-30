@@ -8,10 +8,12 @@ import (
 	"strings"
 )
 
+// Helper in templates
 type Helper struct {
 	Env map[string]string
 }
 
+// Execute command helper
 func (helper Helper) Execute(command string) string {
 	prog, args := parseCommand(command)
 	cmd := exec.Command(prog, args...)
@@ -28,7 +30,7 @@ func (helper Helper) Execute(command string) string {
 }
 
 func newHelper() *Helper {
-	return &Helper {
+	return &Helper{
 		Env: getEnvMap(),
 	}
 }
@@ -39,4 +41,3 @@ func parseCommand(command string) (prog string, args []string) {
 	args = elements[1:]
 	return
 }
-
