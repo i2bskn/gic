@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/codegangsta/cli"
 	"os"
 	"os/exec"
 	"path"
@@ -11,18 +12,22 @@ import (
 	"strings"
 	"text/template"
 	"time"
-
-	"github.com/codegangsta/cli"
 )
 
 const (
+	// MetaDir is saved templates and settings
 	MetaDir = ".gic"
+	// TemplateDir is saved templates path from MetaDir
 	TemplateDir = "templates"
+	// DefaultEditor is used when there is no EDITOR environment variable
 	DefaultEditor = "vi"
+	// Permission of MetaDir
 	Permission = 0777
+	// PersonalAccessTokenKey in .gitconfig
 	PersonalAccessTokenKey = "github.token"
 )
 
+// Commands of CLI
 var Commands = []cli.Command{
 	commandInit,
 	commandList,
@@ -32,40 +37,40 @@ var Commands = []cli.Command{
 }
 
 var commandInit = cli.Command{
-	Name:  "init",
-	Usage: "Initialize gic settings of project.",
+	Name:   "init",
+	Usage:  "Initialize gic settings of project.",
 	Action: doInit,
 }
 
 var commandList = cli.Command{
-	Name:  "list",
-	Usage: "Display a list of templates.",
+	Name:   "list",
+	Usage:  "Display a list of templates.",
 	Action: doList,
 }
 
 var commandEdit = cli.Command{
-	Name:  "edit",
-	Usage: "Edit template.",
+	Name:   "edit",
+	Usage:  "Edit template.",
 	Action: doEdit,
 }
 
 var commandPreview = cli.Command{
-	Name:  "preview",
-	Usage: "Display a preview of template.",
+	Name:   "preview",
+	Usage:  "Display a preview of template.",
 	Action: doPreview,
 }
 
 var commandApply = cli.Command{
-	Name:  "apply",
-	Usage: "Create Issue with given template.",
+	Name:   "apply",
+	Usage:  "Create Issue with given template.",
 	Action: doApply,
 }
 
 func doInit(c *cli.Context) {
 	if requireInitialize() {
-		template_dir := getTemplateDir()
-		os.MkdirAll(template_dir, Permission)
-		fmt.Printf("Created %s\n", template_dir)
+		templateDir := getTemplateDir()
+		os.MkdirAll(templateDir, Permission)
+		fmt.Printf("Created %s\n", templateDir)
 	}
 }
 
@@ -82,8 +87,8 @@ func doEdit(c *cli.Context) {
 	exitIfNotSpecifiedTemplate(len(c.Args()))
 
 	editor := getEditor()
-	template_path := getTemplatePath(c.Args().First())
-	cmd := exec.Command(editor, template_path)
+	templatePath := getTemplatePath(c.Args().First())
+	cmd := exec.Command(editor, templatePath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
@@ -120,7 +125,7 @@ func doApply(c *cli.Context) {
 		fail("Render template fails")
 	}
 
-	owner, repo := parseOriginUrl()
+	owner, repo := parseOriginURL()
 
 	token, err := getGitConfig(PersonalAccessTokenKey)
 	if err != nil {
@@ -136,8 +141,8 @@ func exitIfNotInitialized() {
 	}
 }
 
-func exitIfNotSpecifiedTemplate(arg_size int) {
-	if arg_size < 1 {
+func exitIfNotSpecifiedTemplate(argSize int) {
+	if argSize < 1 {
 		fail("Require template name.")
 	}
 }
@@ -152,9 +157,8 @@ func requireInitialize() bool {
 
 	if os.IsNotExist(err) {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 func getTemplates() (templates []string) {
@@ -166,12 +170,12 @@ func getTemplates() (templates []string) {
 	return
 }
 
-func getTemplateName(template_path string) string {
-	return path.Base(template_path)
+func getTemplateName(templatePath string) string {
+	return path.Base(templatePath)
 }
 
-func getTemplatePath(template_name string) string {
-	return path.Join(getTemplateDir(), template_name)
+func getTemplatePath(templateName string) string {
+	return path.Join(getTemplateDir(), templateName)
 }
 
 func getTemplateDir() string {
@@ -207,14 +211,14 @@ func getEditor() (editor string) {
 	return
 }
 
-func parseOriginUrl() (owner, repo string) {
-	origin_url, err := getGitConfig("remote.origin.url")
+func parseOriginURL() (owner, repo string) {
+	originURL, err := getGitConfig("remote.origin.url")
 	if err != nil {
 		fail("Origin URI not found.")
 	}
 
 	re := regexp.MustCompile(`^(?:git@github\.com:|https://github\.com/)([^/]+)/([^/]+?)(?:\.git)$`)
-	submatch := re.FindSubmatch([]byte(origin_url))
+	submatch := re.FindSubmatch([]byte(originURL))
 	if len(submatch) != 3 {
 		fail("Origin URL parse error.")
 	}
@@ -236,8 +240,8 @@ func getEnvMap() (envs map[string]string) {
 	envs = make(map[string]string)
 
 	for _, env := range os.Environ() {
-		key_and_value := strings.SplitN(env, "=", 2)
-		envs[key_and_value[0]] = key_and_value[1]
+		keyAndValue := strings.SplitN(env, "=", 2)
+		envs[key_and_value[0]] = keyAndValue[1]
 	}
 	return
 }
@@ -246,4 +250,3 @@ func fail(message string) {
 	fmt.Println(message)
 	os.Exit(1)
 }
-
